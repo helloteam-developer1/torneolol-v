@@ -18,7 +18,7 @@ return new class extends Migration
             $table->string('nombreusuario');
             $table->string('email')->unique();
             $table->timestamp('email_verified_at')->nullable();
-            $table->string('idcodigoregistro');
+            $table->string('cupon');
             $table->rememberToken();
             $table->timestamps();
         });
