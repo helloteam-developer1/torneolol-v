@@ -8,6 +8,7 @@ use App\Providers\RouteServiceProvider;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rules;
 
@@ -33,22 +34,40 @@ class RegisteredUserController extends Controller
      */
     public function store(Request $request)
     {
-        $request->validate([
-            'nombreusuario' => ['required', 'string', 'max:45', 'min:18'],
-            'email' => ['required', 'email:rfc,dns', 'min:12', 'max:50' ,'unique:users,email'],
-            'idcodigoregistro' => ['required'],
-        ]);
+        $datos = DB::table('codigoregistro')
+        ->where('cupon', $request->cupon)->get();
+        //verificamos si primero existe un codigo de cupón.
 
-        $user = User::create([
-            'nombreusuario' => $request->nombreusuario,
-            'email' => $request->email,
-            'idcodigoregistro' =>$request->idcodigoregistro,
-        ]);
+        if(!$datos->isEmpty()){
+            //consultamos  la base de datos si existe un codigo con tal cupón ingresado por el usuario y si esta activo 
+            // es decir si nos retorna un 1 registre, en caso de que sea 0 no realice nada.
+            $consulta = DB::select('select * from codigoregistro where cupon = ? and estatus = ?', [$request->cupon,'0']);
+            
+            //si la consulta me da  un indefinido, cupon no esta disponible
+           if($consulta){
+            $request->validate([
+                'nombreusuario' => ['required', 'string', 'max:45', 'min:18'],
+                'email' => ['required', 'email:rfc,dns', 'min:12', 'max:50' ,'unique:users,email'],
+                'cupon' => ['required'],
+            ]);
+    
+            $user = User::create([
+                'nombreusuario' => $request->nombreusuario,
+                'email' => $request->email,
+                'cupon' =>$request->cupon,
+            ]);
+    
+            event(new Registered($user));
+    
+            Auth::login($user);
+    
+            return redirect(RouteServiceProvider::HOME);
+           }else{
+            return "cupon ya canjeado";
+           }
 
-        event(new Registered($user));
-
-        Auth::login($user);
-
-        return redirect(RouteServiceProvider::HOME);
-    }
+        }else{
+            return "codigo no valido ingresa un codigo valido";
+        }   
+}
 }
